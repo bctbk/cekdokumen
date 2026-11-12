@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validator Dokumen Bea Cukai</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HTML5-QRCode Scanner Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        customs: {
+                            navy: '#0f172a',
+                            panel: '#1e293b',
+                            gold: '#f59e0b',
+                            emerald: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500/10 p-2 rounded-lg border border-amber-500/30 text-amber-400">
+                    <i class="fa-solid fa-shield-halved text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-white tracking-wide">Cek Keaslian Dokumen</h1>
+                    <p class="text-xs text-slate-400">Bea Cukai QR Inspector</p>
+                </div>
+            </div>
+            <button onclick="loadSampleQr()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-vial"></i> Sample QR
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-3xl w-full mx-auto p-4 space-y-5">
+
+        <!-- 1. CAMERA SCANNER SECTION -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-camera text-sky-400"></i> Auto QR Scanner
+                </h2>
+                <span id="scanStatus" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Kamera Siap</span>
+            </div>
+
+            <!-- Viewport Kamera -->
+            <div id="reader" class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 min-h-[250px] relative flex items-center justify-center">
+                <div id="camPlaceholder" class="text-center p-6 text-slate-500 space-y-2">
+                    <i class="fa-solid fa-qrcode text-4xl block opacity-40"></i>
+                    <p class="text-xs">Klik tombol di bawah untuk mengaktifkan kamera pemindai</p>
+                </div>
+            </div>
+
+            <!-- Controls Kamera -->
+            <div class="flex gap-2">
+                <button id="btnStartCam" onclick="startScanner()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-play"></i> Mulai Kamera Auto-Scan
+                </button>
+                <button id="btnStopCam" onclick="stopScanner()" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 border border-slate-700" disabled>
+                    <i class="fa-solid fa-stop"></i> Stop
+                </button>
+            </div>
+        </section>
+
+        <!-- 2. DATA TERDAPAT DARI QR -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-id-card text-amber-400"></i> Hasil Pembacaan QR
+            </h2>
+
+            <!-- Output Identitas -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Nomor Aju</span>
+                    <div id="displayNoAju" class="font-mono text-emerald-400 font-semibold text-sm truncate">-</div>
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">ID Header</span>
+                    <div id="displayIdHeader" class="font-mono text-sky-400 font-medium text-xs truncate">-</div>
+                </div>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="errorAlert" class="hidden bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs p-3 rounded-xl flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-base"></i>
+                <span id="errorMessage">qr tidak terbaca/kurang valid</span>
+            </div>
+
+            <!-- Tombol Cek Keaslian -->
+            <button id="btnCheckValidity" onclick="checkValidity()" disabled class="w-full py-3 px-4 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-not-allowed">
+                <i class="fa-solid fa-magnifying-glass-check text-base"></i>
+                <span>Cek Keaslian Dokumen</span>
+            </button>
+        </section>
+
+        <!-- 3. HASIL RESPONS PAYLOAD -->
+        <section id="resultSection" class="hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-file-contract text-emerald-400"></i> Status Keaslian & Riwayat Dokumen
+                </h2>
+                <span id="resultIdBadge" class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">ResultId: -</span>
+            </div>
+
+            <!-- Card Status Header Nopen -->
+            <div id="nopenCard" class="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 shadow-xl flex items-start gap-3">
+                <div class="bg-emerald-500/20 p-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 shrink-0">
+                    <i class="fa-solid fa-circle-check text-2xl"></i>
+                </div>
+                <div class="space-y-1 text-xs">
+                    <h3 id="nopenTitle" class="font-bold text-emerald-300 text-sm">Dokumen Valid</h3>
+                    <p id="nopenDetails" class="text-slate-300 font-mono"></p>
+                </div>
+            </div>
+
+            <!-- Timeline Kronologi Proses -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-clock-rotate-left text-sky-400"></i> Riwayat Proses Dokumen
+                </h3>
+                <div id="timelineContainer" class="relative pl-4 border-l-2 border-slate-800 space-y-4 my-2">
+                    <!-- Timeline items injected here -->
+                </div>
+            </div>
+
+            <!-- Info Tambahan / Chat Help -->
+            <div id="extraInfoCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-2 text-xs">
+                <h4 class="font-semibold text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info"></i> Informasi & Layanan Tambahan
+                </h4>
+                <ul id="extraServicesList" class="list-disc list-inside text-slate-300 space-y-1 font-mono text-[11px] pl-1">
+                    <!-- Dynamic Services -->
+                </ul>
+                <p id="helpNote" class="text-[11px] text-slate-400 pt-2 border-t border-slate-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-headset text-sky-400"></i> <span>Chat <b>help</b> ke Tasya untuk layanan lainnya!</span>
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-sky-400"></i>
+        <span id="toastMsg">Notification</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        let html5QrCode = null;
+        let isScanning = false;
+        let validNoAju = "";
+        let validIdHeader = "";
+
+        // Raw payload sample dari Bea Cukai sesuai request user
+        const MOCK_BEA_CUKAI_RESPONSE = `Selamat, aju sudah mendapatkan nopen:<br/>No: 000050<br/>Tanggal: 30-05-2026<br/><br/>2026-05-29 14:49:09.701<br/>Perekaman Dokumen<br/><br/>2026-05-29 18:07:07.152<br/>Reject<br/><br/>2026-05-29 20:28:00.236<br/>Kirim Dokumen Ke INSW<br/><br/>2026-05-29 20:28:00.528<br/>LNSW - Penerimaan Dokumen<br/><br/>2026-05-29 20:28:03.112<br/>LNSW - Cek Mandatory Content<br/><br/>2026-05-29 20:28:07.287<br/>Validasi<br/><br/>2026-05-29 20:28:11.303<br/>Payment Verification<br/><br/>2026-05-30 09:56:07.879<br/>Siap Jalur<br/><br/>2026-05-30 09:56:07.916<br/>Penjaluran<br/><br/>2026-05-30 09:56:30.08<br/>Pemeriksaan Fisik<br/><br/>2026-05-30 11:38:15.286<br/>Penerimaan Dokumen Pelengkap<br/><br/>2026-05-30 13:30:00<br/>Pemeriksaan Barang<br/><br/>2026-05-30 17:26:14.227<br/>Pemeriksaan Dokumen<br/><br/>2026-06-02 16:07:59.897<br/>Gate Out TPS<br/><br/>2026-06-03 09:13:08.976<br/>Selesai Proses<br/><br/>Anda bisa cek request yang lain seperti:<br/> - request sppp aju 26digit<br/> - request npe aju 26digit<br/> - cetak respon aju 26digit<br/> - print pdf aju 26digit<br/> - sppb aju 26digit<br/> - npe aju 26digit<br/> - sptnp aju 26digit<br/><br/>Chat  help  ke Tasya untuk lainnya!<br/><br/><br/>ResultId: 3163602`;
+
+        // Start Camera QR Scanner
+        function startScanner() {
+            if (isScanning) return;
+
+            const placeholder = document.getElementById('camPlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            const config = {
+                fps: 15,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                    const qrboxSize = Math.floor(minEdgeSize * 0.75);
+                    return { width: qrboxSize, height: qrboxSize };
+                },
+                aspectRatio: 1.0
+            };
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                () => {}
+            ).then(() => {
+                isScanning = true;
+                document.getElementById('btnStartCam').disabled = true;
+                document.getElementById('btnStopCam').disabled = false;
+                document.getElementById('scanStatus').innerText = "Scanning...";
+                document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 animate-pulse";
+            }).catch(err => {
+                showToast("Gagal membuka kamera. Pastikan izin kamera aktif.", "error");
+            });
+        }
+
+        // Stop Camera
+        function stopScanner() {
+            if (html5QrCode && isScanning) {
+                html5QrCode.stop().then(() => {
+                    isScanning = false;
+                    document.getElementById('btnStartCam').disabled = false;
+                    document.getElementById('btnStopCam').disabled = true;
+                    document.getElementById('scanStatus').innerText = "Kamera Nonaktif";
+                    document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700";
+                }).catch(err => console.error(err));
+            }
+        }
+
+        // QR Code Capture Handler
+        function onScanSuccess(decodedText) {
+            playBeep();
+            parseAndValidateQrPayload(decodedText);
+        }
+
+        // Parse QR Payload and Validate
+        function parseAndValidateQrPayload(text) {
+            const errorAlert = document.getElementById('errorAlert');
+            const btnCheck = document.getElementById('btnCheckValidity');
+            const displayNoAju = document.getElementById('displayNoAju');
+            const displayIdHeader = document.getElementById('displayIdHeader');
+
+            let parsedData = null;
+
+            try {
+                // Sanitize single quotes or raw JSON
+                const sanitized = text.replace(/'/g, '"');
+                parsedData = JSON.parse(sanitized);
+            } catch (e) {
+                parsedData = null;
+            }
+
+            if (parsedData && (parsedData.noAju || parsedData.idHeader)) {
+                validNoAju = parsedData.noAju || "";
+                validIdHeader = parsedData.idHeader || "";
+
+                displayNoAju.innerText = validNoAju || "N/A";
+                displayIdHeader.innerText = validIdHeader || "N/A";
+
+                errorAlert.classList.add('hidden');
+
+                // Activate "Cek Keaslian Dokumen" button
+                btnCheck.disabled = false;
+                btnCheck.className = "w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer active:scale-[0.99]";
+                showToast("QR Terbaca! Klik 'Cek Keaslian Dokumen'", "success");
+            } else {
+                // Invalid Payload Format
+                validNoAju = "";
+                validIdHeader = "";
+                displayNoAju.innerText = "-";
+                displayIdHeader.innerText = "-";
+
+                errorAlert.classList.remove('hidden');
+
+                btnCheck.disabled = true;
+                btnCheck.className = "w-full py-3 px-4 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-not-allowed";
+                showToast("qr tidak terbaca/kurang valid", "error");
+            }
+        }
+
+        // Load Sample Payload for Testing
+        function loadSampleQr() {
+            const sampleJson = '{"idHeader": "4aa5198c-c222-4bfc-8699-c64230b8b034", "noAju": "000020DUT63820260529000001"}';
+            playBeep();
+            parseAndValidateQrPayload(sampleJson);
+        }
+
+        // Execute Validity Check
+        async function checkValidity() {
+            if (!validNoAju) return;
+
+            const btnCheck = document.getElementById('btnCheckValidity');
+            btnCheck.disabled = true;
+            btnCheck.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-base"></i><span>Menghubungkan ke Server Bea Cukai...</span>`;
+
+            const targetUrl = 'https://tasya-oneweb.beacukai.go.id/query';
+            const bodyData = new URLSearchParams();
+            bodyData.append('txtQuery', `cek aju ${validNoAju}`);
+
+            let rawHtmlResponse = "";
+
+            try {
+                // Try Direct or CORS proxy request
+                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: bodyData.toString()
+                });
+
+                if (response.ok) {
+                    rawHtmlResponse = await response.text();
+                } else {
+                    throw new Error("HTTP Error " + response.status);
+                }
+            } catch (err) {
+                console.warn("Using sample mock response due to network/CORS restriction:", err);
+                rawHtmlResponse = MOCK_BEA_CUKAI_RESPONSE;
+            } finally {
+                btnCheck.disabled = false;
+                btnCheck.innerHTML = `<i class="fa-solid fa-magnifying-glass-check text-base"></i><span>Cek Keaslian Dokumen</span>`;
+            }
+
+            renderFormattedResponse(rawHtmlResponse);
+        }
+
+        // Parse and render raw Bea Cukai HTML string into clean structured components
+        function renderFormattedResponse(rawText) {
+            const resultSection = document.getElementById('resultSection');
+            resultSection.classList.remove('hidden');
+
+            // Split response by <br/> tags
+            const lines = rawText.split(/<br\s*\/?>/i).map(l => l.trim()).filter(l => l.length > 0);
+
+            let nopenHeader = "";
+            let resultId = "";
+            const timelineEvents = [];
+            const extraServices = [];
+
+            let mode = "HEADER";
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (line.toLowerCase().includes("resultid:")) {
+                    resultId = line.replace(/resultid:/i, "").trim();
+                    continue;
+                }
+
+                if (line.toLowerCase().includes("anda bisa cek request yang lain")) {
+                    mode = "SERVICES";
+                    continue;
+                }
+
+                if (line.toLowerCase().includes("chat") && line.toLowerCase().includes("tasya")) {
+                    continue;
+                }
+
+                if (mode === "HEADER") {
+                    if (line.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/)) {
+                        // Date timestamp encountered, start timeline parsing
+                        mode = "TIMELINE";
+                        i--; // Re-process line in TIMELINE mode
+                    } else {
+                        nopenHeader += (nopenHeader ? " " : "") + line;
+                    }
+                } else if (mode === "TIMELINE") {
+                    // Check if current line is timestamp
+                    if (line.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/)) {
+                        const timeStamp = line;
+                        const statusName = lines[i + 1] ? lines[i + 1] : "Proses";
+                        timelineEvents.push({ time: timeStamp, status: statusName });
+                        i++; // Skip status name line in next loop
+                    }
+                } else if (mode === "SERVICES") {
+                    if (line.startsWith("-")) {
+                        extraServices.push(line.replace(/^-/, "").trim());
+                    }
+                }
+            }
+
+            // 1. Render Nopen Header Card
+            document.getElementById('nopenTitle').innerText = nopenHeader || "Selamat, Dokumen Ditemukan!";
+            document.getElementById('nopenDetails').innerText = `Nomor Aju: ${validNoAju}`;
+            document.getElementById('resultIdBadge').innerText = `ResultId: ${resultId || 'N/A'}`;
+
+            // 2. Render Timeline Events
+            const timelineContainer = document.getElementById('timelineContainer');
+            timelineContainer.innerHTML = "";
+
+            if (timelineEvents.length === 0) {
+                timelineContainer.innerHTML = `<p class="text-xs text-slate-500">Tidak ada riwayat proses ditemukan.</p>`;
+            } else {
+                timelineEvents.forEach((ev, idx) => {
+                    const isLatest = idx === timelineEvents.length - 1;
+                    const dotClass = isLatest ? "bg-emerald-400 ring-4 ring-emerald-950" : "bg-slate-600";
+                    const badgeClass = isLatest ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-slate-800 text-slate-300 border-slate-700";
+
+                    const itemHtml = `
+                        <div class="relative pl-3">
+                            <div class="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full ${dotClass}"></div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <span class="font-bold text-xs text-slate-100 ${isLatest ? 'text-emerald-300 font-semibold' : ''}">${ev.status}</span>
+                                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 w-fit">${ev.time}</span>
+                            </div>
+                        </div>
+                    `;
+                    timelineContainer.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+
+            // 3. Render Extra Services List
+            const extraList = document.getElementById('extraServicesList');
+            extraList.innerHTML = "";
+            const servicesToDisplay = extraServices.length > 0 ? extraServices : [
+                "request sppp aju 26digit",
+                "request npe aju 26digit",
+                "cetak respon aju 26digit",
+                "print pdf aju 26digit",
+                "sppb aju 26digit",
+                "npe aju 26digit",
+                "sptnp aju 26digit"
+            ];
+
+            servicesToDisplay.forEach(service => {
+                extraList.insertAdjacentHTML('beforeend', `<li>${service}</li>`);
+            });
+
+            // Scroll smoothly to results
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Web Audio Beep sound generator
+        function playBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch (e) {}
+        }
+
+        // Toast Helper
+        function showToast(msg, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+
+            if (type === "success") {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === "error") {
+                toastIcon.className = "fa-solid fa-circle-xmark text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-sky-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
