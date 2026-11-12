@@ -545,26 +545,22 @@
     }
 
     // Validasi & Ekstraksi Payload QR Dokumen
-    function parsePayload(raw) {
+  function parsePayload(raw) {
       if (!raw || typeof raw !== "string") return null;
       const cleaned = raw.trim();
 
-      // 1. Format Objek / JSON: {idHeader: ''...'', noAju: ''...''}
-      try {
-        const normalized = cleaned
-          .replace(/''/g, '"')
-          .replace(/'/g, '"')
-          .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-        const obj = JSON.parse(normalized);
-        if (obj && (obj.noAju || obj.no_aju)) {
-          return {
-            noAju: String(obj.noAju || obj.no_aju).trim(),
-            idHeader: String(obj.idHeader || obj.id_header || obj.id || "-").trim()
-          };
-        }
-      } catch {}
+      // 1. Ekstrak noAju dan idHeader secara langsung (kebal terhadap field lain yang rusak/kutip tidak lengkap)
+      const ajuMatch = cleaned.match(/["']?no[_]?aju["']?\s*[:=]\s*['"]*\s*([A-Za-z0-9-]+)\s*['"]*/i);
+      const idMatch = cleaned.match(/["']?id[_]?header["']?\s*[:=]\s*['"]*\s*([A-Za-z0-9-]+)\s*['"]*/i);
 
-      // 2. Format URL dengan query string (?idHeader=...&noAju=...)
+      if (ajuMatch && ajuMatch[1] && ajuMatch[1] !== "-") {
+        return {
+          noAju: ajuMatch[1].trim(),
+          idHeader: idMatch && idMatch[1] ? idMatch[1].trim() : "-"
+        };
+      }
+
+      // 2. Fallback jika QR berupa URL dengan query string (?idHeader=...&noAju=...)
       try {
         if (/^https?:\/\//i.test(cleaned)) {
           const url = new URL(cleaned);
@@ -578,17 +574,6 @@
           }
         }
       } catch {}
-
-      // 3. Fallback Regex key-value
-      const ajuMatch = cleaned.match(/no[_]?aju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
-      const idMatch = cleaned.match(/id[_]?header\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
-
-      if (ajuMatch) {
-        return {
-          noAju: ajuMatch[1].trim(),
-          idHeader: idMatch ? idMatch[1].trim() : "-"
-        };
-      }
 
       return null;
     }
