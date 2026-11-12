@@ -35,6 +35,7 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        #reader video { width: 100% !important; height: auto !important; object-fit: cover; border-radius: 0.75rem; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
@@ -70,21 +71,25 @@
             </div>
 
             <!-- Viewport Kamera -->
-            <div id="reader" class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 min-h-[250px] relative flex items-center justify-center">
+            <div id="reader" class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 min-h-[260px] relative flex items-center justify-center">
                 <div id="camPlaceholder" class="text-center p-6 text-slate-500 space-y-2">
                     <i class="fa-solid fa-qrcode text-4xl block opacity-40"></i>
-                    <p class="text-xs">Klik tombol di bawah untuk mengaktifkan kamera pemindai</p>
+                    <p class="text-xs">Klik tombol di bawah untuk mengaktifkan kamera HD atau unggah gambar QR</p>
                 </div>
             </div>
 
-            <!-- Controls Kamera -->
-            <div class="flex gap-2">
+            <!-- Controls Kamera & Upload Gambar -->
+            <div class="flex flex-wrap gap-2">
                 <button id="btnStartCam" onclick="startScanner()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
-                    <i class="fa-solid fa-play"></i> Mulai Kamera Auto-Scan
+                    <i class="fa-solid fa-play"></i> Mulai Kamera
                 </button>
                 <button id="btnStopCam" onclick="stopScanner()" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 border border-slate-700" disabled>
                     <i class="fa-solid fa-stop"></i> Stop
                 </button>
+                <label class="py-2.5 px-4 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 border border-sky-500/30 cursor-pointer">
+                    <i class="fa-solid fa-image"></i> Upload QR
+                    <input type="file" id="qrFileInput" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
+                </label>
             </div>
         </section>
 
@@ -177,10 +182,10 @@
         let isScanning = false;
         let validNoAju = "";
         let validIdHeader = "";
+        let lastScanTime = 0;
 
         // Raw payload sample dari Bea Cukai sesuai request user
-        const MOCK_BEA_CUKAI_RESPONSE = `Selamat, aju sudah mendapatkan nopen:<br/>No: 000050<br/>Tanggal: 30-05-2026<br/><br/>2026-05-29 14:49:09.701<br/>Perekaman Dokumen<br/><br/>2026-05-29 18:07:07.152<br/>Reject<br/><br/>2026-05-29 20:28:00.236<br/>Kirim Dokumen Ke INSW<br/><br/>2026-05-29 20:28:00.528<br/>LNSW - Penerimaan Dokumen<br/><br/>2026-05-29 20:28:03.112<br/>LNSW - Cek Mandatory Content<br/><br/>2026-05-29 20:28:07.287<br/>Validasi<br/><br/>2026-05-29 20:28:11.303<br/>Payment Verification<br/><br/>2026-05-30 09:56:07.879<br/>Siap Jalur<br/><br/>2026-05-30 09:56:07.916<br/>Penjaluran<br/><br/>2026-05-30 09:56:30.08<br/>Pemeriksaan Fisik<br/><br/>2026-05-30 11:38:15.286<br/>Penerimaan Dokumen Pelengkap<br/><br/>2026-05-30 13:30:00<br/>Pemeriksaan Barang<br/><br/>2026-05-30 17:26:14.227<br/>Pemeriksaan Dokumen<br/><br/>2026-06-02 16:07:59.897<br/>Gate Out TPS<br/><br/>2026-06-03 09:13:08.976<br/>Selesai Proses<br/><br/>Anda bisa cek request yang lain seperti:<br/> - request sppp aju 26digit<br/> - request npe aju 26digit<br/> - cetak respon aju 26digit<br/> - print pdf aju 26digit<br/> - sppb aju 26digit<br/> - npe aju 26digit<br/> - sptnp aju 26digit<br/><br/>Chat  help  ke Tasya untuk lainnya!<br/><br/><br/>ResultId: 3163602`;
-
+// ... existing code ... -->
         // Start Camera QR Scanner
         function startScanner() {
             if (isScanning) return;
@@ -189,21 +194,30 @@
             if (placeholder) placeholder.style.display = 'none';
 
             if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode = new Html5Qrcode("reader", {
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    },
+                    verbose: false
+                });
             }
 
             const config = {
-                fps: 15,
-                qrbox: function(viewfinderWidth, viewfinderHeight) {
-                    const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-                    const qrboxSize = Math.floor(minEdgeSize * 0.75);
-                    return { width: qrboxSize, height: qrboxSize };
-                },
-                aspectRatio: 1.0
+                fps: 25,
+                // Tidak membatasi qrbox agar seluruh area tangkap HD dipindai penuh
+                disableFlip: false
+            };
+
+            const cameraConstraints = {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                advanced: [{ focusMode: "continuous" }]
             };
 
             html5QrCode.start(
-                { facingMode: "environment" },
+                cameraConstraints,
                 config,
                 onScanSuccess,
                 () => {}
@@ -211,10 +225,24 @@
                 isScanning = true;
                 document.getElementById('btnStartCam').disabled = true;
                 document.getElementById('btnStopCam').disabled = false;
-                document.getElementById('scanStatus').innerText = "Scanning...";
+                document.getElementById('scanStatus').innerText = "Scanning HD...";
                 document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 animate-pulse";
-            }).catch(err => {
-                showToast("Gagal membuka kamera. Pastikan izin kamera aktif.", "error");
+            }).catch(() => {
+                // Fallback jika constraint resolusi/fokus tidak didukung device
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    onScanSuccess,
+                    () => {}
+                ).then(() => {
+                    isScanning = true;
+                    document.getElementById('btnStartCam').disabled = true;
+                    document.getElementById('btnStopCam').disabled = false;
+                    document.getElementById('scanStatus').innerText = "Scanning...";
+                    document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 animate-pulse";
+                }).catch(() => {
+                    showToast("Gagal membuka kamera. Pastikan izin kamera aktif.", "error");
+                });
             });
         }
 
@@ -231,10 +259,80 @@
             }
         }
 
-        // QR Code Capture Handler
+        // Scan dari Upload File Gambar
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (isScanning) stopScanner();
+
+            const placeholder = document.getElementById('camPlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader", {
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+                });
+            }
+
+            html5QrCode.scanFile(file, true)
+                .then(decodedText => {
+                    playBeep();
+                    parseAndValidateQrPayload(decodedText);
+                })
+                .catch(() => {
+                    parseAndValidateQrPayload("");
+                })
+                .finally(() => {
+                    event.target.value = "";
+                });
+        }
+
+        // QR Code Capture Handler dengan debounce agar tidak spam
         function onScanSuccess(decodedText) {
+            const now = Date.now();
+            if (now - lastScanTime < 1500) return;
+            lastScanTime = now;
+
             playBeep();
             parseAndValidateQrPayload(decodedText);
+        }
+
+        // Parser fleksibel untuk JSON standar, kutip tunggal, key tanpa kutip, maupun regex fallback
+        function extractQrFields(rawText) {
+            if (!rawText || typeof rawText !== 'string') return null;
+            const trimmed = rawText.trim();
+
+            // 1. Coba parse JSON standar atau ubah kutip tunggal & unquoted keys menjadi JSON valid
+            try {
+                let normalized = trimmed
+                    .replace(/''/g, '"')
+                    .replace(/'/g, '"')
+                    .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+                const obj = JSON.parse(normalized);
+                if (obj && (obj.noAju || obj.idHeader)) {
+                    return {
+                        noAju: obj.noAju ? String(obj.noAju).trim() : "",
+                        idHeader: obj.idHeader ? String(obj.idHeader).trim() : ""
+                    };
+                }
+            } catch (e) {
+                // Lanjut ke ekstraksi Regex jika struktur bukan JSON utuh
+            }
+
+            // 2. Fallback Regex untuk mengekstrak idHeader dan noAju secara langsung
+            const noAjuMatch = trimmed.match(/noAju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+            const idHeaderMatch = trimmed.match(/idHeader\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+
+            if (noAjuMatch || idHeaderMatch) {
+                return {
+                    noAju: noAjuMatch ? noAjuMatch[1].trim() : "",
+                    idHeader: idHeaderMatch ? idHeaderMatch[1].trim() : ""
+                };
+            }
+
+            return null;
         }
 
         // Parse QR Payload and Validate
@@ -244,15 +342,7 @@
             const displayNoAju = document.getElementById('displayNoAju');
             const displayIdHeader = document.getElementById('displayIdHeader');
 
-            let parsedData = null;
-
-            try {
-                // Sanitize single quotes or raw JSON
-                const sanitized = text.replace(/'/g, '"');
-                parsedData = JSON.parse(sanitized);
-            } catch (e) {
-                parsedData = null;
-            }
+            const parsedData = extractQrFields(text);
 
             if (parsedData && (parsedData.noAju || parsedData.idHeader)) {
                 validNoAju = parsedData.noAju || "";
@@ -284,9 +374,9 @@
 
         // Load Sample Payload for Testing
         function loadSampleQr() {
-            const sampleJson = '{"idHeader": "4aa5198c-c222-4bfc-8699-c64230b8b034", "noAju": "000020DUT63820260529000001"}';
+            const samplePayload = "{idHeader: '4aa5198c-c222-4bfc-8699-c64230b8b034', noAju: '000020DUT63820260529000001'}";
             playBeep();
-            parseAndValidateQrPayload(sampleJson);
+            parseAndValidateQrPayload(samplePayload);
         }
 
         // Execute Validity Check
