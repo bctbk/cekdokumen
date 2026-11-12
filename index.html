@@ -368,7 +368,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Cek Keaslian Dokumen</h1>
+      <h1>Cek Keaslian SPPB NPE NPPB Beacukai</h1>
       <p>Arahkan kamera ke QR Code dokumen untuk memindai otomatis</p>
     </div>
 
@@ -414,7 +414,7 @@
       </div>
 
       <button type="button" id="btnCheck" class="btn btn-primary" style="margin-top: 14px;" disabled>
-        Cek History berdasarkan Dokumen
+        Cek History berdasarkan ID Dokumen
       </button>
     </div>
 
@@ -614,7 +614,7 @@
       capturedData = parsed;
       scanningActive = false;
       scanFrame.classList.add("detected");
-      showAlert("success", "QR Code valid berhasil terbaca! Silakan klik tombol Cek Keaslian Dokumen.");
+      showAlert("success", "QR Code valid berhasil terbaca! Silakan klik tombol Cek History untuk melacak Keaslian Dokumen.");
 
       dispNoAju.textContent = parsed.noAju;
       dispNoAju.classList.remove("empty");
@@ -775,7 +775,7 @@
         renderFormattedResponse(SAMPLE_RAW_RESPONSE);
       } finally {
         btnCheck.disabled = false;
-        btnCheck.textContent = "Cek Keaslian Dokumen";
+        btnCheck.textContent = "Cek History berdasarkan ID Dokumen";
       }
     });
 
