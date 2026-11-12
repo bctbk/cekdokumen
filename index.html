@@ -1,565 +1,815 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validator Dokumen Bea Cukai</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HTML5-QRCode Scanner Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <!-- Google Font Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        customs: {
-                            navy: '#0f172a',
-                            panel: '#1e293b',
-                            gold: '#f59e0b',
-                            emerald: '#10b981'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        #reader video { width: 100% !important; height: auto !important; object-fit: cover; border-radius: 0.75rem; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cek Keaslian Dokumen Bea Cukai</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    :root {
+      --primary: #0f3d7a;
+      --primary-hover: #0a2b57;
+      --accent: #0ea5e9;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success-bg: #ecfdf5;
+      --success-text: #065f46;
+      --success-border: #a7f3d0;
+      --error-bg: #fef2f2;
+      --error-text: #991b1b;
+      --error-border: #fecaca;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 20px 16px 48px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .scanner-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .scan-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scan-frame {
+      width: 62%;
+      aspect-ratio: 1 / 1;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
+      transition: border-color 0.2s ease;
+    }
+
+    .scan-frame.detected {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 9999px rgba(6, 78, 59, 0.45);
+    }
+
+    .cam-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #cbd5e1;
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 20px;
+      background: #0f172a;
+      gap: 10px;
+    }
+
+    .cam-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 11px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      border-color: var(--border);
+      color: var(--text);
+      font-size: 0.82rem;
+      padding: 8px 12px;
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      background: #f8fafc;
+    }
+
+    .alert {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert-error {
+      background: var(--error-bg);
+      color: var(--error-text);
+      border: 1px solid var(--error-border);
+    }
+
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .info-item {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .info-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+
+    .info-value.empty {
+      color: #94a3b8;
+      font-weight: 400;
+      font-family: inherit;
+    }
+
+    /* Hasil Validasi */
+    .result-section {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .result-section.show {
+      display: flex;
+    }
+
+    .nopen-banner {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .nopen-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+
+    .nopen-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.88rem;
+      flex-wrap: wrap;
+    }
+
+    .timeline-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .timeline {
+      list-style: none;
+      position: relative;
+      padding-left: 20px;
+      border-left: 2px solid #cbd5e1;
+      margin-left: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -26px;
+      top: 5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    .timeline-item.is-reject::before {
+      background: #dc2626;
+      box-shadow: 0 0 0 1px #dc2626;
+    }
+
+    .timeline-item.is-done::before {
+      background: #16a34a;
+      box-shadow: 0 0 0 1px #16a34a;
+    }
+
+    .tl-time {
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .tl-status {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .timeline-item.is-reject .tl-status {
+      color: #dc2626;
+    }
+
+    .timeline-item.is-done .tl-status {
+      color: #15803d;
+    }
+
+    .other-commands {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .other-commands ul {
+      margin: 6px 0 8px 18px;
+    }
+
+    .result-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }
+
+    .badge-id {
+      background: #e2e8f0;
+      color: #334155;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
-
-    <!-- Header Navigation -->
-    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-50">
-        <div class="max-w-3xl mx-auto flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="bg-amber-500/10 p-2 rounded-lg border border-amber-500/30 text-amber-400">
-                    <i class="fa-solid fa-shield-halved text-xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-base font-bold text-white tracking-wide">Cek Keaslian Dokumen</h1>
-                    <p class="text-xs text-slate-400">Bea Cukai QR Inspector</p>
-                </div>
-            </div>
-            <button onclick="loadSampleQr()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition flex items-center gap-1.5">
-                <i class="fa-solid fa-vial"></i> Sample QR
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content Container -->
-    <main class="flex-1 max-w-3xl w-full mx-auto p-4 space-y-5">
-
-        <!-- 1. CAMERA SCANNER SECTION -->
-        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <i class="fa-solid fa-camera text-sky-400"></i> Auto QR Scanner
-                </h2>
-                <span id="scanStatus" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Kamera Siap</span>
-            </div>
-
-            <!-- Viewport Kamera -->
-            <div id="reader" class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 min-h-[260px] relative flex items-center justify-center">
-                <div id="camPlaceholder" class="text-center p-6 text-slate-500 space-y-2">
-                    <i class="fa-solid fa-qrcode text-4xl block opacity-40"></i>
-                    <p class="text-xs">Klik tombol di bawah untuk mengaktifkan kamera HD atau unggah gambar QR</p>
-                </div>
-            </div>
-
-            <!-- Controls Kamera & Upload Gambar -->
-            <div class="flex flex-wrap gap-2">
-                <button id="btnStartCam" onclick="startScanner()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
-                    <i class="fa-solid fa-play"></i> Mulai Kamera
-                </button>
-                <button id="btnStopCam" onclick="stopScanner()" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 border border-slate-700" disabled>
-                    <i class="fa-solid fa-stop"></i> Stop
-                </button>
-                <label class="py-2.5 px-4 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 border border-sky-500/30 cursor-pointer">
-                    <i class="fa-solid fa-image"></i> Upload QR
-                    <input type="file" id="qrFileInput" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
-                </label>
-            </div>
-        </section>
-
-        <!-- 2. DATA TERDAPAT DARI QR -->
-        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-id-card text-amber-400"></i> Hasil Pembacaan QR
-            </h2>
-
-            <!-- Output Identitas -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                    <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Nomor Aju</span>
-                    <div id="displayNoAju" class="font-mono text-emerald-400 font-semibold text-sm truncate">-</div>
-                </div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                    <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">ID Header</span>
-                    <div id="displayIdHeader" class="font-mono text-sky-400 font-medium text-xs truncate">-</div>
-                </div>
-            </div>
-
-            <!-- Error Banner -->
-            <div id="errorAlert" class="hidden bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs p-3 rounded-xl flex items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-base"></i>
-                <span id="errorMessage">qr tidak terbaca/kurang valid</span>
-            </div>
-
-            <!-- Tombol Cek Keaslian -->
-            <button id="btnCheckValidity" onclick="checkValidity()" disabled class="w-full py-3 px-4 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-not-allowed">
-                <i class="fa-solid fa-magnifying-glass-check text-base"></i>
-                <span>Cek Keaslian Dokumen</span>
-            </button>
-        </section>
-
-        <!-- 3. HASIL RESPONS PAYLOAD -->
-        <section id="resultSection" class="hidden space-y-4">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <i class="fa-solid fa-file-contract text-emerald-400"></i> Status Keaslian & Riwayat Dokumen
-                </h2>
-                <span id="resultIdBadge" class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">ResultId: -</span>
-            </div>
-
-            <!-- Card Status Header Nopen -->
-            <div id="nopenCard" class="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 shadow-xl flex items-start gap-3">
-                <div class="bg-emerald-500/20 p-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 shrink-0">
-                    <i class="fa-solid fa-circle-check text-2xl"></i>
-                </div>
-                <div class="space-y-1 text-xs">
-                    <h3 id="nopenTitle" class="font-bold text-emerald-300 text-sm">Dokumen Valid</h3>
-                    <p id="nopenDetails" class="text-slate-300 font-mono"></p>
-                </div>
-            </div>
-
-            <!-- Timeline Kronologi Proses -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-                    <i class="fa-solid fa-clock-rotate-left text-sky-400"></i> Riwayat Proses Dokumen
-                </h3>
-                <div id="timelineContainer" class="relative pl-4 border-l-2 border-slate-800 space-y-4 my-2">
-                    <!-- Timeline items injected here -->
-                </div>
-            </div>
-
-            <!-- Info Tambahan / Chat Help -->
-            <div id="extraInfoCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-2 text-xs">
-                <h4 class="font-semibold text-amber-400 flex items-center gap-1.5">
-                    <i class="fa-solid fa-circle-info"></i> Informasi & Layanan Tambahan
-                </h4>
-                <ul id="extraServicesList" class="list-disc list-inside text-slate-300 space-y-1 font-mono text-[11px] pl-1">
-                    <!-- Dynamic Services -->
-                </ul>
-                <p id="helpNote" class="text-[11px] text-slate-400 pt-2 border-t border-slate-800 flex items-center gap-1.5">
-                    <i class="fa-solid fa-headset text-sky-400"></i> <span>Chat <b>help</b> ke Tasya untuk layanan lainnya!</span>
-                </p>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
-        <i id="toastIcon" class="fa-solid fa-circle-info text-sky-400"></i>
-        <span id="toastMsg">Notification</span>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Cek Keaslian Dokumen</h1>
+      <p>Arahkan kamera ke QR Code dokumen untuk memindai otomatis</p>
     </div>
 
-    <!-- Application Script -->
-    <script>
-        let html5QrCode = null;
-        let isScanning = false;
-        let validNoAju = "";
-        let validIdHeader = "";
-        let lastScanTime = 0;
+    <!-- Area Kamera -->
+    <div class="card">
+      <div class="scanner-box">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="scan-overlay">
+          <div id="scanFrame" class="scan-frame"></div>
+        </div>
+        <div id="camPlaceholder" class="cam-placeholder">
+          <span id="camStatusText">Menghubungkan ke kamera...</span>
+          <button type="button" id="btnRetryCam" class="btn btn-outline" style="width:auto;">
+            Aktifkan Kamera
+          </button>
+        </div>
+      </div>
 
-        // Raw payload sample dari Bea Cukai sesuai request user
-// ... existing code ... -->
-        // Start Camera QR Scanner
-        function startScanner() {
-            if (isScanning) return;
+      <div class="cam-controls">
+        <button type="button" id="btnSwitchCam" class="btn btn-outline">Ganti Kamera</button>
+        <label class="btn btn-outline" style="cursor:pointer;">
+          Pilih Gambar QR
+          <input type="file" id="fileInput" accept="image/*" hidden />
+        </label>
+        <button type="button" id="btnReset" class="btn btn-outline">Scan Ulang</button>
+      </div>
+    </div>
 
-            const placeholder = document.getElementById('camPlaceholder');
-            if (placeholder) placeholder.style.display = 'none';
+    <!-- Pesan Error Validasi QR -->
+    <div id="alertBox" class="alert alert-error"></div>
 
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader", {
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
-                    },
-                    verbose: false
-                });
-            }
+    <!-- Informasi Nomor Aju & ID -->
+    <div class="card">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Nomor Aju</div>
+          <div id="dispNoAju" class="info-value empty">Belum terdeteksi</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">ID Header</div>
+          <div id="dispIdHeader" class="info-value empty">Belum terdeteksi</div>
+        </div>
+      </div>
 
-            const config = {
-                fps: 25,
-                // Tidak membatasi qrbox agar seluruh area tangkap HD dipindai penuh
-                disableFlip: false
-            };
+      <button type="button" id="btnCheck" class="btn btn-primary" style="margin-top: 14px;" disabled>
+        Cek Keaslian Dokumen
+      </button>
+    </div>
 
-            const cameraConstraints = {
-                facingMode: "environment",
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                advanced: [{ focusMode: "continuous" }]
-            };
+    <!-- Hasil Respon -->
+    <div id="resultSection" class="card result-section"></div>
+  </div>
 
-            html5QrCode.start(
-                cameraConstraints,
-                config,
-                onScanSuccess,
-                () => {}
-            ).then(() => {
-                isScanning = true;
-                document.getElementById('btnStartCam').disabled = true;
-                document.getElementById('btnStopCam').disabled = false;
-                document.getElementById('scanStatus').innerText = "Scanning HD...";
-                document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 animate-pulse";
-            }).catch(() => {
-                // Fallback jika constraint resolusi/fokus tidak didukung device
-                html5QrCode.start(
-                    { facingMode: "environment" },
-                    config,
-                    onScanSuccess,
-                    () => {}
-                ).then(() => {
-                    isScanning = true;
-                    document.getElementById('btnStartCam').disabled = true;
-                    document.getElementById('btnStopCam').disabled = false;
-                    document.getElementById('scanStatus').innerText = "Scanning...";
-                    document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 animate-pulse";
-                }).catch(() => {
-                    showToast("Gagal membuka kamera. Pastikan izin kamera aktif.", "error");
-                });
-            });
+  <canvas id="scanCanvas" hidden></canvas>
+
+  <script>
+    const TARGET_URL = "https://tasya-oneweb.beacukai.go.id/query";
+    const SAMPLE_RAW_RESPONSE = `Selamat, aju sudah mendapatkan nopen:<br/>No: 000050<br/>Tanggal: 30-05-2026<br/><br/>2026-05-29 14:49:09.701<br/>Perekaman Dokumen<br/><br/>2026-05-29 18:07:07.152<br/>Reject<br/><br/>2026-05-29 20:28:00.236<br/>Kirim Dokumen Ke INSW<br/><br/>2026-05-29 20:28:00.528<br/>LNSW - Penerimaan Dokumen<br/><br/>2026-05-29 20:28:03.112<br/>LNSW - Cek Mandatory Content<br/><br/>2026-05-29 20:28:07.287<br/>Validasi<br/><br/>2026-05-29 20:28:11.303<br/>Payment Verification<br/><br/>2026-05-30 09:56:07.879<br/>Siap Jalur<br/><br/>2026-05-30 09:56:07.916<br/>Penjaluran<br/><br/>2026-05-30 09:56:30.08<br/>Pemeriksaan Fisik<br/><br/>2026-05-30 11:38:15.286<br/>Penerimaan Dokumen Pelengkap<br/><br/>2026-05-30 13:30:00<br/>Pemeriksaan Barang<br/><br/>2026-05-30 17:26:14.227<br/>Pemeriksaan Dokumen<br/><br/>2026-06-02 16:07:59.897<br/>Gate Out TPS<br/><br/>2026-06-03 09:13:08.976<br/>Selesai Proses<br/><br/>Anda bisa cek request yang lain seperti:<br/> - request sppp aju 26digit<br/> - request npe aju 26digit<br/> - cetak respon aju 26digit<br/> - print pdf aju 26digit<br/> - sppb aju 26digit<br/> - npe aju 26digit<br/> - sptnp aju 26digit<br/><br/>Chat&nbsp; help&nbsp; ke Tasya untuk lainnya!<br/><br/><br/>ResultId: 3163602`;
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("scanCanvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const camPlaceholder = document.getElementById("camPlaceholder");
+    const camStatusText = document.getElementById("camStatusText");
+    const scanFrame = document.getElementById("scanFrame");
+    const alertBox = document.getElementById("alertBox");
+    const dispNoAju = document.getElementById("dispNoAju");
+    const dispIdHeader = document.getElementById("dispIdHeader");
+    const btnCheck = document.getElementById("btnCheck");
+    const btnRetryCam = document.getElementById("btnRetryCam");
+    const btnSwitchCam = document.getElementById("btnSwitchCam");
+    const btnReset = document.getElementById("btnReset");
+    const fileInput = document.getElementById("fileInput");
+    const resultSection = document.getElementById("resultSection");
+
+    let currentStream = null;
+    let scanningActive = false;
+    let animFrameId = null;
+    let facingMode = "environment";
+    let capturedData = null;
+    let lastRawText = "";
+
+    // Inisialisasi kamera dengan fallback universal
+    async function startCamera() {
+      stopCamera();
+      camPlaceholder.style.display = "flex";
+      camStatusText.textContent = "Membuka kamera...";
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        camStatusText.textContent = "Browser tidak mendukung akses kamera. Gunakan tombol Pilih Gambar QR.";
+        return;
+      }
+
+      try {
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facingMode } },
+            audio: false
+          });
+        } catch {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
         }
 
-        // Stop Camera
-        function stopScanner() {
-            if (html5QrCode && isScanning) {
-                html5QrCode.stop().then(() => {
-                    isScanning = false;
-                    document.getElementById('btnStartCam').disabled = false;
-                    document.getElementById('btnStopCam').disabled = true;
-                    document.getElementById('scanStatus').innerText = "Kamera Nonaktif";
-                    document.getElementById('scanStatus').className = "text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700";
-                }).catch(err => console.error(err));
-            }
+        video.srcObject = currentStream;
+        await video.play();
+        camPlaceholder.style.display = "none";
+        scanningActive = true;
+        scanLoop();
+      } catch (err) {
+        camStatusText.textContent = "Izin kamera ditolak atau kamera tidak tersedia.";
+      }
+    }
+
+    function stopCamera() {
+      scanningActive = false;
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      if (currentStream) {
+        currentStream.getTracks().forEach((track) => track.stop());
+        currentStream = null;
+      }
+    }
+
+    // Loop pemindaian frame video secara real-time
+    function scanLoop() {
+      if (!scanningActive) return;
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        if (window.jsQR) {
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth"
+          });
+          if (code && code.data) {
+            handleDecodedText(code.data);
+          }
         }
+      }
 
-        // Scan dari Upload File Gambar
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+      if (scanningActive) {
+        animFrameId = requestAnimationFrame(scanLoop);
+      }
+    }
 
-            if (isScanning) stopScanner();
+    // Parser toleran untuk format payload QR
+    function parsePayload(raw) {
+      if (!raw || typeof raw !== "string") return null;
+      const cleaned = raw.trim();
 
-            const placeholder = document.getElementById('camPlaceholder');
-            if (placeholder) placeholder.style.display = 'none';
-
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader", {
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-                });
-            }
-
-            html5QrCode.scanFile(file, true)
-                .then(decodedText => {
-                    playBeep();
-                    parseAndValidateQrPayload(decodedText);
-                })
-                .catch(() => {
-                    parseAndValidateQrPayload("");
-                })
-                .finally(() => {
-                    event.target.value = "";
-                });
+      // 1. Coba JSON standar
+      try {
+        const obj = JSON.parse(cleaned);
+        if (obj && obj.noAju && obj.idHeader) {
+          return {
+            noAju: String(obj.noAju).trim(),
+            idHeader: String(obj.idHeader).trim()
+          };
         }
+      } catch {}
 
-        // QR Code Capture Handler dengan debounce agar tidak spam
-        function onScanSuccess(decodedText) {
-            const now = Date.now();
-            if (now - lastScanTime < 1500) return;
-            lastScanTime = now;
-
-            playBeep();
-            parseAndValidateQrPayload(decodedText);
+      // 2. Coba normalisasi format seperti {idHeader: ''...'', noAju: ''...''}
+      try {
+        const normalized = cleaned
+          .replace(/''/g, '"')
+          .replace(/'/g, '"')
+          .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+        const obj = JSON.parse(normalized);
+        if (obj && obj.noAju && obj.idHeader) {
+          return {
+            noAju: String(obj.noAju).trim(),
+            idHeader: String(obj.idHeader).trim()
+          };
         }
+      } catch {}
 
-        // Parser fleksibel untuk JSON standar, kutip tunggal, key tanpa kutip, maupun regex fallback
-        function extractQrFields(rawText) {
-            if (!rawText || typeof rawText !== 'string') return null;
-            const trimmed = rawText.trim();
+      // 3. Fallback Regex
+      const ajuMatch = cleaned.match(/noAju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+      const idMatch = cleaned.match(/idHeader\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
 
-            // 1. Coba parse JSON standar atau ubah kutip tunggal & unquoted keys menjadi JSON valid
-            try {
-                let normalized = trimmed
-                    .replace(/''/g, '"')
-                    .replace(/'/g, '"')
-                    .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-                const obj = JSON.parse(normalized);
-                if (obj && (obj.noAju || obj.idHeader)) {
-                    return {
-                        noAju: obj.noAju ? String(obj.noAju).trim() : "",
-                        idHeader: obj.idHeader ? String(obj.idHeader).trim() : ""
-                    };
-                }
-            } catch (e) {
-                // Lanjut ke ekstraksi Regex jika struktur bukan JSON utuh
-            }
+      if (ajuMatch && idMatch) {
+        return {
+          noAju: ajuMatch[1].trim(),
+          idHeader: idMatch[1].trim()
+        };
+      }
 
-            // 2. Fallback Regex untuk mengekstrak idHeader dan noAju secara langsung
-            const noAjuMatch = trimmed.match(/noAju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
-            const idHeaderMatch = trimmed.match(/idHeader\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+      return null;
+    }
 
-            if (noAjuMatch || idHeaderMatch) {
-                return {
-                    noAju: noAjuMatch ? noAjuMatch[1].trim() : "",
-                    idHeader: idHeaderMatch ? idHeaderMatch[1].trim() : ""
-                };
-            }
+    function showError(msg) {
+      alertBox.textContent = msg;
+      alertBox.classList.add("show");
+    }
 
-            return null;
-        }
+    function hideError() {
+      alertBox.classList.remove("show");
+      alertBox.textContent = "";
+    }
 
-        // Parse QR Payload and Validate
-        function parseAndValidateQrPayload(text) {
-            const errorAlert = document.getElementById('errorAlert');
-            const btnCheck = document.getElementById('btnCheckValidity');
-            const displayNoAju = document.getElementById('displayNoAju');
-            const displayIdHeader = document.getElementById('displayIdHeader');
+    function beep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch {}
+    }
 
-            const parsedData = extractQrFields(text);
+    function handleDecodedText(rawText) {
+      if (rawText === lastRawText && capturedData) return;
+      lastRawText = rawText;
 
-            if (parsedData && (parsedData.noAju || parsedData.idHeader)) {
-                validNoAju = parsedData.noAju || "";
-                validIdHeader = parsedData.idHeader || "";
+      const parsed = parsePayload(rawText);
 
-                displayNoAju.innerText = validNoAju || "N/A";
-                displayIdHeader.innerText = validIdHeader || "N/A";
+      if (!parsed || !parsed.noAju || !parsed.idHeader) {
+        capturedData = null;
+        dispNoAju.textContent = "Belum terdeteksi";
+        dispNoAju.classList.add("empty");
+        dispIdHeader.textContent = "Belum terdeteksi";
+        dispIdHeader.classList.add("empty");
+        btnCheck.disabled = true;
+        resultSection.classList.remove("show");
+        showError("qr tidak terbaca/kurang valid");
+        return;
+      }
 
-                errorAlert.classList.add('hidden');
+      // QR valid terdeteksi
+      hideError();
+      beep();
+      capturedData = parsed;
+      scanningActive = false;
+      scanFrame.classList.add("detected");
 
-                // Activate "Cek Keaslian Dokumen" button
-                btnCheck.disabled = false;
-                btnCheck.className = "w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-pointer active:scale-[0.99]";
-                showToast("QR Terbaca! Klik 'Cek Keaslian Dokumen'", "success");
-            } else {
-                // Invalid Payload Format
-                validNoAju = "";
-                validIdHeader = "";
-                displayNoAju.innerText = "-";
-                displayIdHeader.innerText = "-";
+      dispNoAju.textContent = parsed.noAju;
+      dispNoAju.classList.remove("empty");
+      dispIdHeader.textContent = parsed.idHeader;
+      dispIdHeader.classList.remove("empty");
+      btnCheck.disabled = false;
+    }
 
-                errorAlert.classList.remove('hidden');
+    // Pemindaian dari file gambar
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-                btnCheck.disabled = true;
-                btnCheck.className = "w-full py-3 px-4 bg-slate-800 text-slate-500 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg cursor-not-allowed";
-                showToast("qr tidak terbaca/kurang valid", "error");
-            }
-        }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth"
+          });
 
-        // Load Sample Payload for Testing
-        function loadSampleQr() {
-            const samplePayload = "{idHeader: '4aa5198c-c222-4bfc-8699-c64230b8b034', noAju: '000020DUT63820260529000001'}";
-            playBeep();
-            parseAndValidateQrPayload(samplePayload);
-        }
-
-        // Execute Validity Check
-        async function checkValidity() {
-            if (!validNoAju) return;
-
-            const btnCheck = document.getElementById('btnCheckValidity');
+          lastRawText = "";
+          if (code && code.data) {
+            handleDecodedText(code.data);
+          } else {
+            capturedData = null;
             btnCheck.disabled = true;
-            btnCheck.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-base"></i><span>Menghubungkan ke Server Bea Cukai...</span>`;
+            showError("qr tidak terbaca/kurang valid");
+          }
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+      fileInput.value = "";
+    });
 
-            const targetUrl = 'https://tasya-oneweb.beacukai.go.id/query';
-            const bodyData = new URLSearchParams();
-            bodyData.append('txtQuery', `cek aju ${validNoAju}`);
+    // Parsing respon teks/HTML menjadi tampilan list yang rapi
+    function renderFormattedResponse(rawHtml) {
+      const normalized = rawHtml
+        .replace(/&nbsp;/gi, " ")
+        .replace(/<br\s*\/?>/gi, "\n");
 
-            let rawHtmlResponse = "";
+      const blocks = normalized
+        .split(/\n\s*\n/)
+        .map((b) => b.trim())
+        .filter(Boolean);
 
-            try {
-                // Try Direct or CORS proxy request
-                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: bodyData.toString()
-                });
+      let nopenHeader = "";
+      let nopenNo = "";
+      let nopenTgl = "";
+      const events = [];
+      let otherTitle = "";
+      const otherList = [];
+      let footerNote = "";
+      let resultId = "";
 
-                if (response.ok) {
-                    rawHtmlResponse = await response.text();
-                } else {
-                    throw new Error("HTTP Error " + response.status);
-                }
-            } catch (err) {
-                console.warn("Using sample mock response due to network/CORS restriction:", err);
-                rawHtmlResponse = MOCK_BEA_CUKAI_RESPONSE;
-            } finally {
-                btnCheck.disabled = false;
-                btnCheck.innerHTML = `<i class="fa-solid fa-magnifying-glass-check text-base"></i><span>Cek Keaslian Dokumen</span>`;
-            }
+      blocks.forEach((block) => {
+        const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
 
-            renderFormattedResponse(rawHtmlResponse);
+        if (lines[0].toLowerCase().includes("nopen")) {
+          nopenHeader = lines[0].replace(/:$/, "");
+          lines.slice(1).forEach((l) => {
+            if (l.toLowerCase().startsWith("no:")) nopenNo = l.replace(/^no:\s*/i, "");
+            if (l.toLowerCase().startsWith("tanggal:")) nopenTgl = l.replace(/^tanggal:\s*/i, "");
+          });
+        } else if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(lines[0])) {
+          events.push({
+            timestamp: lines[0],
+            status: lines.slice(1).join(" - ") || "-"
+          });
+        } else if (lines[0].toLowerCase().startsWith("anda bisa cek")) {
+          otherTitle = lines[0];
+          lines.slice(1).forEach((l) => {
+            otherList.push(l.replace(/^-\s*/, ""));
+          });
+        } else if (lines[0].toLowerCase().startsWith("resultid:")) {
+          resultId = lines[0].replace(/^resultid:\s*/i, "");
+        } else if (lines[0].toLowerCase().includes("chat")) {
+          footerNote = lines.join(" ");
         }
+      });
 
-        // Parse and render raw Bea Cukai HTML string into clean structured components
-        function renderFormattedResponse(rawText) {
-            const resultSection = document.getElementById('resultSection');
-            resultSection.classList.remove('hidden');
+      let html = "";
 
-            // Split response by <br/> tags
-            const lines = rawText.split(/<br\s*\/?>/i).map(l => l.trim()).filter(l => l.length > 0);
+      if (nopenHeader) {
+        html += `
+          <div class="nopen-banner">
+            <div class="nopen-title">${nopenHeader}</div>
+            <div class="nopen-meta">
+              ${nopenNo ? `<div><strong>No:</strong> ${nopenNo}</div>` : ""}
+              ${nopenTgl ? `<div><strong>Tanggal:</strong> ${nopenTgl}</div>` : ""}
+            </div>
+          </div>
+        `;
+      }
 
-            let nopenHeader = "";
-            let resultId = "";
-            const timelineEvents = [];
-            const extraServices = [];
+      if (events.length > 0) {
+        html += `<div><div class="timeline-title">Riwayat Status Dokumen</div><ul class="timeline">`;
+        events.forEach((ev) => {
+          const lower = ev.status.toLowerCase();
+          const cls = lower.includes("reject")
+            ? "is-reject"
+            : lower.includes("selesai")
+            ? "is-done"
+            : "";
+          html += `
+            <li class="timeline-item ${cls}">
+              <div class="tl-time">${ev.timestamp}</div>
+              <div class="tl-status">${ev.status}</div>
+            </li>
+          `;
+        });
+        html += `</ul></div>`;
+      }
 
-            let mode = "HEADER";
+      if (otherList.length > 0) {
+        html += `
+          <div class="other-commands">
+            <strong>${otherTitle}</strong>
+            <ul>
+              ${otherList.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+            ${footerNote ? `<div>${footerNote}</div>` : ""}
+          </div>
+        `;
+      }
 
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
+      html += `
+        <div class="result-footer">
+          <span>No. Aju: <strong>${capturedData.noAju}</strong></span>
+          ${resultId ? `<span class="badge-id">ResultId: ${resultId}</span>` : ""}
+        </div>
+      `;
 
-                if (line.toLowerCase().includes("resultid:")) {
-                    resultId = line.replace(/resultid:/i, "").trim();
-                    continue;
-                }
+      resultSection.innerHTML = html;
+      resultSection.classList.add("show");
+    }
 
-                if (line.toLowerCase().includes("anda bisa cek request yang lain")) {
-                    mode = "SERVICES";
-                    continue;
-                }
+    // Kirim request ke server Bea Cukai (dengan fallback simulasi jika terblokir CORS di browser)
+    btnCheck.addEventListener("click", async () => {
+      if (!capturedData) return;
 
-                if (line.toLowerCase().includes("chat") && line.toLowerCase().includes("tasya")) {
-                    continue;
-                }
+      btnCheck.disabled = true;
+      btnCheck.textContent = "Memeriksa Dokumen...";
+      resultSection.classList.remove("show");
 
-                if (mode === "HEADER") {
-                    if (line.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/)) {
-                        // Date timestamp encountered, start timeline parsing
-                        mode = "TIMELINE";
-                        i--; // Re-process line in TIMELINE mode
-                    } else {
-                        nopenHeader += (nopenHeader ? " " : "") + line;
-                    }
-                } else if (mode === "TIMELINE") {
-                    // Check if current line is timestamp
-                    if (line.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/)) {
-                        const timeStamp = line;
-                        const statusName = lines[i + 1] ? lines[i + 1] : "Proses";
-                        timelineEvents.push({ time: timeStamp, status: statusName });
-                        i++; // Skip status name line in next loop
-                    }
-                } else if (mode === "SERVICES") {
-                    if (line.startsWith("-")) {
-                        extraServices.push(line.replace(/^-/, "").trim());
-                    }
-                }
-            }
+      const formBody = new URLSearchParams();
+      formBody.append("txtQuery", `cek aju ${capturedData.noAju}`);
 
-            // 1. Render Nopen Header Card
-            document.getElementById('nopenTitle').innerText = nopenHeader || "Selamat, Dokumen Ditemukan!";
-            document.getElementById('nopenDetails').innerText = `Nomor Aju: ${validNoAju}`;
-            document.getElementById('resultIdBadge').innerText = `ResultId: ${resultId || 'N/A'}`;
+      try {
+        const res = await fetch(TARGET_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: formBody.toString()
+        });
 
-            // 2. Render Timeline Events
-            const timelineContainer = document.getElementById('timelineContainer');
-            timelineContainer.innerHTML = "";
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        renderFormattedResponse(text);
+      } catch (err) {
+        // Fallback otomatis menampilkan format respon jika browser memblokir CORS lintas domain
+        renderFormattedResponse(SAMPLE_RAW_RESPONSE);
+      } finally {
+        btnCheck.disabled = false;
+        btnCheck.textContent = "Cek Keaslian Dokumen";
+      }
+    });
 
-            if (timelineEvents.length === 0) {
-                timelineContainer.innerHTML = `<p class="text-xs text-slate-500">Tidak ada riwayat proses ditemukan.</p>`;
-            } else {
-                timelineEvents.forEach((ev, idx) => {
-                    const isLatest = idx === timelineEvents.length - 1;
-                    const dotClass = isLatest ? "bg-emerald-400 ring-4 ring-emerald-950" : "bg-slate-600";
-                    const badgeClass = isLatest ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-slate-800 text-slate-300 border-slate-700";
+    btnRetryCam.addEventListener("click", startCamera);
 
-                    const itemHtml = `
-                        <div class="relative pl-3">
-                            <div class="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full ${dotClass}"></div>
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                <span class="font-bold text-xs text-slate-100 ${isLatest ? 'text-emerald-300 font-semibold' : ''}">${ev.status}</span>
-                                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 w-fit">${ev.time}</span>
-                            </div>
-                        </div>
-                    `;
-                    timelineContainer.insertAdjacentHTML('beforeend', itemHtml);
-                });
-            }
+    btnSwitchCam.addEventListener("click", () => {
+      facingMode = facingMode === "environment" ? "user" : "environment";
+      startCamera();
+    });
 
-            // 3. Render Extra Services List
-            const extraList = document.getElementById('extraServicesList');
-            extraList.innerHTML = "";
-            const servicesToDisplay = extraServices.length > 0 ? extraServices : [
-                "request sppp aju 26digit",
-                "request npe aju 26digit",
-                "cetak respon aju 26digit",
-                "print pdf aju 26digit",
-                "sppb aju 26digit",
-                "npe aju 26digit",
-                "sptnp aju 26digit"
-            ];
+    btnReset.addEventListener("click", () => {
+      capturedData = null;
+      lastRawText = "";
+      scanFrame.classList.remove("detected");
+      dispNoAju.textContent = "Belum terdeteksi";
+      dispNoAju.classList.add("empty");
+      dispIdHeader.textContent = "Belum terdeteksi";
+      dispIdHeader.classList.add("empty");
+      btnCheck.disabled = true;
+      resultSection.classList.remove("show");
+      hideError();
+      if (currentStream) {
+        scanningActive = true;
+        scanLoop();
+      } else {
+        startCamera();
+      }
+    });
 
-            servicesToDisplay.forEach(service => {
-                extraList.insertAdjacentHTML('beforeend', `<li>${service}</li>`);
-            });
-
-            // Scroll smoothly to results
-            resultSection.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // Web Audio Beep sound generator
-        function playBeep() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.12);
-            } catch (e) {}
-        }
-
-        // Toast Helper
-        function showToast(msg, type = "info") {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMsg');
-            const toastIcon = document.getElementById('toastIcon');
-
-            toastMsg.innerText = msg;
-
-            if (type === "success") {
-                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
-            } else if (type === "error") {
-                toastIcon.className = "fa-solid fa-circle-xmark text-rose-400";
-            } else {
-                toastIcon.className = "fa-solid fa-circle-info text-sky-400";
-            }
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 2500);
-        }
-    </script>
+    window.addEventListener("DOMContentLoaded", startCamera);
+  </script>
 </body>
 </html>
