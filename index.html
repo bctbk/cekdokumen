@@ -9,7 +9,6 @@
     :root {
       --primary: #0f3d7a;
       --primary-hover: #0a2b57;
-      --accent: #0ea5e9;
       --bg: #f1f5f9;
       --card: #ffffff;
       --text: #1e293b;
@@ -99,16 +98,17 @@
     }
 
     .scan-frame {
-      width: 62%;
+      width: 65%;
       aspect-ratio: 1 / 1;
       border: 2px solid rgba(255, 255, 255, 0.85);
       border-radius: 14px;
       box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
-      transition: border-color 0.2s ease;
+      transition: all 0.2s ease;
     }
 
     .scan-frame.detected {
       border-color: #22c55e;
+      border-width: 3px;
       box-shadow: 0 0 0 9999px rgba(6, 78, 59, 0.45);
     }
 
@@ -174,11 +174,12 @@
       background: #f8fafc;
     }
 
+    /* Alert Status (Error & Sukses) */
     .alert {
       padding: 12px 14px;
       border-radius: 10px;
       font-size: 0.88rem;
-      font-weight: 500;
+      font-weight: 600;
       display: none;
     }
 
@@ -190,6 +191,12 @@
       background: var(--error-bg);
       color: var(--error-text);
       border: 1px solid var(--error-border);
+    }
+
+    .alert-success {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
     }
 
     .info-grid {
@@ -308,7 +315,7 @@
     .tl-time {
       font-size: 0.76rem;
       color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
 
     .tl-status {
@@ -390,8 +397,8 @@
       </div>
     </div>
 
-    <!-- Pesan Error Validasi QR -->
-    <div id="alertBox" class="alert alert-error"></div>
+    <!-- Pesan Status (Sukses / Error QR tidak terbaca) -->
+    <div id="alertBox" class="alert"></div>
 
     <!-- Informasi Nomor Aju & ID -->
     <div class="card">
@@ -439,26 +446,34 @@
 
     let currentStream = null;
     let scanningActive = false;
-    let animFrameId = null;
+    let timerId = null;
     let facingMode = "environment";
     let capturedData = null;
     let lastRawText = "";
 
-    // Inisialisasi kamera dengan fallback universal
+    const nativeDetector =
+      "BarcodeDetector" in window
+        ? new BarcodeDetector({ formats: ["qr_code"] })
+        : null;
+
     async function startCamera() {
       stopCamera();
       camPlaceholder.style.display = "flex";
       camStatusText.textContent = "Membuka kamera...";
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        camStatusText.textContent = "Browser tidak mendukung akses kamera. Gunakan tombol Pilih Gambar QR.";
+        camStatusText.textContent = "Browser tidak mendukung kamera. Gunakan Pilih Gambar QR.";
         return;
       }
 
       try {
         try {
           currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: facingMode } },
+            video: {
+              facingMode: { ideal: facingMode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
             audio: false
           });
         } catch {
@@ -473,16 +488,16 @@
         camPlaceholder.style.display = "none";
         scanningActive = true;
         scanLoop();
-      } catch (err) {
+      } catch {
         camStatusText.textContent = "Izin kamera ditolak atau kamera tidak tersedia.";
       }
     }
 
     function stopCamera() {
       scanningActive = false;
-      if (animFrameId) {
-        cancelAnimationFrame(animFrameId);
-        animFrameId = null;
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
       }
       if (currentStream) {
         currentStream.getTracks().forEach((track) => track.stop());
@@ -490,125 +505,131 @@
       }
     }
 
-    // Loop pemindaian frame video secara real-time
-    function scanLoop() {
+    async function decodeSource(source, width, height) {
+      if (nativeDetector) {
+        try {
+          const barcodes = await nativeDetector.detect(source);
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            return barcodes[0].rawValue;
+          }
+        } catch {}
+      }
+
+      if (window.jsQR && width > 0 && height > 0) {
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(source, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth"
+        });
+        if (code && code.data) return code.data;
+      }
+
+      return null;
+    }
+
+    async function scanLoop() {
       if (!scanningActive) return;
 
       if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        if (window.jsQR) {
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth"
-          });
-          if (code && code.data) {
-            handleDecodedText(code.data);
-          }
+        const raw = await decodeSource(video, video.videoWidth, video.videoHeight);
+        if (raw) {
+          handleDecodedText(raw);
         }
       }
 
       if (scanningActive) {
-        animFrameId = requestAnimationFrame(scanLoop);
+        timerId = setTimeout(scanLoop, 120);
       }
     }
 
-    // Parser toleran untuk format payload QR
+    // Validasi & Ekstraksi Payload QR Dokumen
     function parsePayload(raw) {
       if (!raw || typeof raw !== "string") return null;
       const cleaned = raw.trim();
 
-      // 1. Coba JSON standar
-      try {
-        const obj = JSON.parse(cleaned);
-        if (obj && obj.noAju && obj.idHeader) {
-          return {
-            noAju: String(obj.noAju).trim(),
-            idHeader: String(obj.idHeader).trim()
-          };
-        }
-      } catch {}
-
-      // 2. Coba normalisasi format seperti {idHeader: ''...'', noAju: ''...''}
+      // 1. Format Objek / JSON: {idHeader: ''...'', noAju: ''...''}
       try {
         const normalized = cleaned
           .replace(/''/g, '"')
           .replace(/'/g, '"')
           .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
         const obj = JSON.parse(normalized);
-        if (obj && obj.noAju && obj.idHeader) {
+        if (obj && (obj.noAju || obj.no_aju)) {
           return {
-            noAju: String(obj.noAju).trim(),
-            idHeader: String(obj.idHeader).trim()
+            noAju: String(obj.noAju || obj.no_aju).trim(),
+            idHeader: String(obj.idHeader || obj.id_header || obj.id || "-").trim()
           };
         }
       } catch {}
 
-      // 3. Fallback Regex
-      const ajuMatch = cleaned.match(/noAju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
-      const idMatch = cleaned.match(/idHeader\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+      // 2. Format URL dengan query string (?idHeader=...&noAju=...)
+      try {
+        if (/^https?:\/\//i.test(cleaned)) {
+          const url = new URL(cleaned);
+          const qAju = url.searchParams.get("noAju") || url.searchParams.get("aju");
+          const qId = url.searchParams.get("idHeader") || url.searchParams.get("id");
+          if (qAju) {
+            return {
+              noAju: qAju.trim(),
+              idHeader: (qId || "-").trim()
+            };
+          }
+        }
+      } catch {}
 
-      if (ajuMatch && idMatch) {
+      // 3. Fallback Regex key-value
+      const ajuMatch = cleaned.match(/no[_]?aju\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+      const idMatch = cleaned.match(/id[_]?header\s*[:=]\s*['"]?([A-Za-z0-9-]+)['"]?/i);
+
+      if (ajuMatch) {
         return {
           noAju: ajuMatch[1].trim(),
-          idHeader: idMatch[1].trim()
+          idHeader: idMatch ? idMatch[1].trim() : "-"
         };
       }
 
       return null;
     }
 
-    function showError(msg) {
+    // Helper untuk menampilkan alert sukses (hijau) atau error (merah)
+    function showAlert(type, msg) {
+      alertBox.className = `alert show ${type === "success" ? "alert-success" : "alert-error"}`;
       alertBox.textContent = msg;
-      alertBox.classList.add("show");
     }
 
-    function hideError() {
-      alertBox.classList.remove("show");
+    function hideAlert() {
+      alertBox.className = "alert";
       alertBox.textContent = "";
     }
 
-    function beep() {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.12);
-      } catch {}
-    }
-
+    // Lokasi utama penanganan hasil baca QR Code
     function handleDecodedText(rawText) {
       if (rawText === lastRawText && capturedData) return;
       lastRawText = rawText;
 
       const parsed = parsePayload(rawText);
 
-      if (!parsed || !parsed.noAju || !parsed.idHeader) {
+      // JIKA QR DOKUMEN LAIN / FORMAT TIDAK SESUAI:
+      if (!parsed || !parsed.noAju) {
         capturedData = null;
+        scanFrame.classList.remove("detected");
         dispNoAju.textContent = "Belum terdeteksi";
         dispNoAju.classList.add("empty");
         dispIdHeader.textContent = "Belum terdeteksi";
         dispIdHeader.classList.add("empty");
         btnCheck.disabled = true;
         resultSection.classList.remove("show");
-        showError("qr tidak terbaca/kurang valid");
+        showAlert("error", "qr tidak terbaca/kurang valid");
         return;
       }
 
-      // QR valid terdeteksi
-      hideError();
-      beep();
+      // JIKA QR VALID TERBACA:
       capturedData = parsed;
       scanningActive = false;
       scanFrame.classList.add("detected");
+      showAlert("success", "QR Code valid berhasil terbaca! Silakan klik tombol Cek Keaslian Dokumen.");
 
       dispNoAju.textContent = parsed.noAju;
       dispNoAju.classList.remove("empty");
@@ -617,7 +638,6 @@
       btnCheck.disabled = false;
     }
 
-    // Pemindaian dari file gambar
     fileInput.addEventListener("change", (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -625,22 +645,16 @@
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth"
-          });
-
+        img.onload = async () => {
           lastRawText = "";
-          if (code && code.data) {
-            handleDecodedText(code.data);
+          const raw = await decodeSource(img, img.width, img.height);
+          if (raw) {
+            handleDecodedText(raw);
           } else {
             capturedData = null;
+            scanFrame.classList.remove("detected");
             btnCheck.disabled = true;
-            showError("qr tidak terbaca/kurang valid");
+            showAlert("error", "qr tidak terbaca/kurang valid");
           }
         };
         img.src = reader.result;
@@ -649,7 +663,6 @@
       fileInput.value = "";
     });
 
-    // Parsing respon teks/HTML menjadi tampilan list yang rapi
     function renderFormattedResponse(rawHtml) {
       const normalized = rawHtml
         .replace(/&nbsp;/gi, " ")
@@ -751,7 +764,6 @@
       resultSection.classList.add("show");
     }
 
-    // Kirim request ke server Bea Cukai (dengan fallback simulasi jika terblokir CORS di browser)
     btnCheck.addEventListener("click", async () => {
       if (!capturedData) return;
 
@@ -774,8 +786,7 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         renderFormattedResponse(text);
-      } catch (err) {
-        // Fallback otomatis menampilkan format respon jika browser memblokir CORS lintas domain
+      } catch {
         renderFormattedResponse(SAMPLE_RAW_RESPONSE);
       } finally {
         btnCheck.disabled = false;
@@ -800,7 +811,7 @@
       dispIdHeader.classList.add("empty");
       btnCheck.disabled = true;
       resultSection.classList.remove("show");
-      hideError();
+      hideAlert();
       if (currentStream) {
         scanningActive = true;
         scanLoop();
